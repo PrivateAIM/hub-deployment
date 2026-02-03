@@ -82,25 +82,30 @@ echo "alias k='microk8s kubectl'" >> ~/.bashrc && source ~/.bashrc
 
 
 ## Minikube
-### Installation
+### 1. Installation
 1. Follow the [Minikube Installation Instructions](https://minikube.sigs.k8s.io/docs/start/)
 2. Enable required addon: ingress
 ```
 minikube addons enable ingress
 ```
-### Installing the FLAME Hub
+### 2. Installing the FLAME Hub
 See [Hub Installation](kubernetes-instructions.md)
 
-### Accessing your deployments:
+### 3. Accessing your deployments:
 The default FLAME Hub chart uses ingress to expose the Hub and the Harbor.
-1. You can verify the ingress resources and IP by running
+You can verify the ingress resources and IP by running
 ```
 kubectl get ingress
 ```
-You can access the ingress at the IP printed in the output.
-To get the ingress-controller to recognize, which service you want to access, you need to use the hostnames you configured.
+* Note also: [Quick start guide on Accessing your deployments in the Minikube Documentation](https://minikube.sigs.k8s.io/docs/start/?arch=%2Flinux%2Fx86-64%2Fstable%2Fbinary+download#Ingress)
+#### For Linux and MacOS
+You can access the ingress at the IP printed in the output. 
+>**Note for Docker Desktop Users:**
+>
+>To get ingress to work you’ll need to open a new terminal window and run `minikube tunnel` and in the following step use 127.0.0.1 in place of <ip>.
 
-2. On the machine you want to use to access the WebUI, edit hosts file:
+To get the ingress-controller to recognize which service you want to access, you need to use the hostnames you configured.
+On the machine you want to use to access the WebUI, edit hosts file:
 ```
 sudo nano /etc/hosts
 ```
@@ -110,9 +115,18 @@ Add the lines
 # optionally add also harbor
 <harbor hostname> <ip>
 ```
-3. Access your Hub at https://<hub hostname>
+Access your Hub at https://<hub hostname>
 
-Note also: [Quick start guide on Accessing your deployments in the Minikube Documentation](https://minikube.sigs.k8s.io/docs/start/?arch=%2Flinux%2Fx86-64%2Fstable%2Fbinary+download#Ingress)
+#### For Windows
+Use the helper script in scripts/
+```shell
+cd scripts
+```
+
+Open PowerShell as Administrator
+```shell
+powershell -ExecutionPolicy Bypass -File .\minikube-dns.ps1 <hubURL> <harborURL>
+```
 
 ## Helm
 Follow the [Helm Installation Instructions](https://helm.sh/docs/intro/install/)

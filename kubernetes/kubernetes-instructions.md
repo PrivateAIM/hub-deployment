@@ -106,30 +106,4 @@ harbor:
 ```
 
 ## Accessing the hub
-Point your browser at the hostname you specified in your values. You may need to specify `https://`.
-
-If you are not using a pre-existing domain name, hardcode the hostname you chose in your hosts file.
-### For Linux and MacOS:
-1. Find out the local IP of your Kubernetes cluster (e.g. `minikube ip` for minikube or using `kubectl get ingress`)
-2. Edit hosts file
-```
-sudo nano /etc/hosts
-```
-Add the lines
-```
-<hub hostname> <ip>
-
-# optionally add also harbor
-<harbor hostname> <ip>
-```
-### For Windows
-Use the helper script in scripts/
-```shell
-cd scripts
-```
-
-Open PowerShell as Administrator
-```shell
-powershell -ExecutionPolicy Bypass -File .\minikube-dns.ps1 <hubURL> <harborURL>
-```
-
+For accessing the hub in a minikube installation, refer to the [Minikube Setup: Accessing Deployments](node-setup.md#accessing-your-deployments)
