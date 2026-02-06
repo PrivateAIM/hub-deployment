@@ -1,0 +1,14 @@
+global:
+  flameHub:
+    ingress:
+      enabled: true
+      ssl: true
+      hostname: "hub.local"
+
+grafana:
+  # disable plugins until plugin issues are fixed
+  plugins:
+
+harbor:
+  enabled: true
+  externalURL: "https://harbor.hub.local/" # don't forget https://

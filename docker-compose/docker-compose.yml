@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 volumes:
     mysql:
         driver: local
@@ -14,7 +14,15 @@ services:
         networks:
             hub:
         healthcheck:
-            test: [ "CMD", "wget", "--spider", "--proxy", "off", "http://127.0.0.1:9428/health" ]
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--spider",
+                    "--proxy",
+                    "off",
+                    "http://127.0.0.1:9428/health",
+                ]
             start_period: 20s
             interval: 3s
             timeout: 5s
@@ -29,7 +37,7 @@ services:
         image: mysql:9
         restart: always
         healthcheck:
-            test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
             interval: 3s
             timeout: 5s
             retries: 5
@@ -37,13 +45,13 @@ services:
             MYSQL_ROOT_HOST: "%"
             MYSQL_ROOT_PASSWORD: start123
         volumes:
-            -  mysql:/var/lib/mysql
+            - mysql:/var/lib/mysql
         networks:
             hub:
     redis:
         image: bitnamilegacy/redis:8.2.1-debian-12-r0
         healthcheck:
-            test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+            test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
             interval: 3s
             timeout: 5s
             retries: 5
@@ -59,7 +67,7 @@ services:
             timeout: 5s
             retries: 5
         volumes:
-            -  minio:/data
+            - minio:/data
         environment:
             MINIO_ROOT_USER: admin
             MINIO_ROOT_PASSWORD: start123
@@ -75,7 +83,7 @@ services:
             timeout: 5s
             retries: 5
         ports:
-            - '5672:5672'
+            - "5672:5672"
         environment:
             RABBITMQ_DEFAULT_USER: root
             RABBITMQ_DEFAULT_PASS: start123
@@ -85,13 +93,21 @@ services:
         image: hashicorp/vault
         pull_policy: always
         healthcheck:
-            test: [ "CMD", "wget", "--spider", "--proxy", "off", "http://127.0.0.1:8090/v1/sys/health?standbyok=true" ]
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--spider",
+                    "--proxy",
+                    "off",
+                    "http://127.0.0.1:8090/v1/sys/health?standbyok=true",
+                ]
             interval: 10s
             timeout: 3s
             retries: 10
             start_period: 5s
         volumes:
-            -  vault:/vault
+            - vault:/vault
         environment:
             SKIP_SETCAP: true
             VAULT_DEV_ROOT_TOKEN_ID: start123
@@ -111,10 +127,10 @@ services:
             messenger:
                 condition: service_healthy
         ports:
-            - '3000:3000'
+            - "3000:3000"
         volumes:
-            - './nginx.conf:/etc/nginx/nginx.conf'
-            - '/var/run/docker.sock:/tmp/docker.sock:ro'
+            - "./nginx.conf:/etc/nginx/nginx.conf"
+            - "/var/run/docker.sock:/tmp/docker.sock:ro"
         networks:
             hub:
     authup:
@@ -129,11 +145,11 @@ services:
             vault:
                 condition: service_healthy
         environment:
-            DB_TYPE: 'mysql'
-            DB_HOST: 'mysql'
-            DB_USERNAME: 'root'
-            DB_PASSWORD: 'start123'
-            DB_DATABASE: 'auth'
+            DB_TYPE: "mysql"
+            DB_HOST: "mysql"
+            DB_USERNAME: "root"
+            DB_PASSWORD: "start123"
+            DB_DATABASE: "auth"
             VAULT: start123@http://vault:8090/v1/
             REDIS: redis://redis
             PUBLIC_URL: ${AUTHUP_PUBLIC_URL:-http://localhost:3000/auth/}
@@ -167,11 +183,11 @@ services:
             HARBOR_URL: ${HARBOR_URL:-}
             AUTHUP_URL: http://authup:3000/
             TELEMETRY_URL: http://telemetry:3000/
-            DB_TYPE: 'mysql'
-            DB_HOST: 'mysql'
-            DB_USERNAME: 'root'
-            DB_PASSWORD: 'start123'
-            DB_DATABASE: 'core'
+            DB_TYPE: "mysql"
+            DB_HOST: "mysql"
+            DB_USERNAME: "root"
+            DB_PASSWORD: "start123"
+            DB_DATABASE: "core"
             SKIP_PROJECT_APPROVAL: true
             SKIP_ANALYSIS_APPROVAL: true
             MASTER_IMAGES_BRANCH: ${MASTER_IMAGES_BRANCH:-master}
@@ -229,11 +245,11 @@ services:
             vault:
                 condition: service_healthy
         environment:
-            DB_TYPE: 'mysql'
-            DB_HOST: 'mysql'
-            DB_USERNAME: 'root'
-            DB_PASSWORD: 'start123'
-            DB_DATABASE: 'storage'
+            DB_TYPE: "mysql"
+            DB_HOST: "mysql"
+            DB_USERNAME: "root"
+            DB_PASSWORD: "start123"
+            DB_DATABASE: "storage"
             PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:3000/storage/}
             REDIS_CONNECTION_STRING: redis://redis
             MINIO_CONNECTION_STRING: http://admin:start123@minio:9000
@@ -253,11 +269,11 @@ services:
             vault:
                 condition: service_healthy
         environment:
-            DB_TYPE: 'mysql'
-            DB_HOST: 'mysql'
-            DB_USERNAME: 'root'
-            DB_PASSWORD: 'start123'
-            DB_DATABASE: 'telemetry'
+            DB_TYPE: "mysql"
+            DB_HOST: "mysql"
+            DB_USERNAME: "root"
+            DB_PASSWORD: "start123"
+            DB_DATABASE: "telemetry"
             PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:3000/telemetry/}
             RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
             REDIS_CONNECTION_STRING: redis://redis
