@@ -251,6 +251,7 @@ services:
             DB_PASSWORD: "start123"
             DB_DATABASE: "storage"
             PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:3000/storage/}
+            RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
             REDIS_CONNECTION_STRING: redis://redis
             MINIO_CONNECTION_STRING: http://admin:start123@minio:9000
             VAULT_CONNECTION_STRING: start123@http://vault:8090/v1/
