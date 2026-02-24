@@ -21,22 +21,17 @@ echo "Starting MicroK8s Installation..."
 DEFAULT_SNAP_COMMON_PATH="/mnt/vdb1"
 SNAP_COMMON_PATH="$DEFAULT_SNAP_COMMON_PATH"
 
-read -rp "Use a non-default path for snap common? [y/N]: " USE_CUSTOM_PATH
-if [[ "${USE_CUSTOM_PATH:-}" =~ ^[Yy]$ ]]; then
+if confirm_step "Step 1: Configure custom storage volume"; then
     read -rp "Enter path for snap common (default: $DEFAULT_SNAP_COMMON_PATH): " SNAP_COMMON_PATH
     if [ -z "${SNAP_COMMON_PATH}" ]; then
         SNAP_COMMON_PATH="$DEFAULT_SNAP_COMMON_PATH"
     fi
-fi
 
-if confirm_step "Step 0: Checking storage prerequisites"; then
     if [ ! -d "$SNAP_COMMON_PATH" ]; then
         echo "[ERROR] Mount point $SNAP_COMMON_PATH does not exist."
         exit 1
     fi
-fi
 
-if confirm_step "Step 1: Configuring Custom Storage Volume"; then
     sudo mkdir -p /var/snap/microk8s/common "$SNAP_COMMON_PATH/microk8s/common"
 
     if ! mountpoint -q /var/snap/microk8s/common; then
@@ -54,7 +49,12 @@ fi
 
 if confirm_step "Step 2: Installing Snapd and MicroK8s"; then
     sudo apt update -qq && sudo apt install -y snapd
-    sudo snap install microk8s --classic --channel=1.32
+
+    DEFAULT_CHANNEL="1.32"
+    read -rp "Optional: Specify MicroK8s channel [default: $DEFAULT_CHANNEL]: " MICROK8S_CHANNEL
+    MICROK8S_CHANNEL="${MICROK8S_CHANNEL:-$DEFAULT_CHANNEL}"
+
+    sudo snap install microk8s --classic --channel="${MICROK8S_CHANNEL}"
 
     # Explicitly update the path for this subshell session
     export PATH=$PATH:/snap/bin
@@ -71,8 +71,15 @@ if confirm_step "Step 4: Enable recommended addons"; then
     sudo "$MK8S" status --wait-ready
 
     echo "Enabling Addons..."
-    sudo "$MK8S" enable dashboard ingress hostpath-storage metrics-server
-    echo "[SUCCESS] Addons enabled."
+    for addon in dashboard ingress hostpath-storage metrics-server; do
+        echo "Enabling $addon..."
+        if sudo "$MK8S" enable "$addon"; then
+            echo "[SUCCESS] $addon enabled."
+        else
+            echo "[WARNING] Failed to enable $addon, continuing..."
+        fi
+    done
+    echo "[SUCCESS] Addon enabling complete."
 fi
 
 if confirm_step "Step 5: Exporting Kubeconfig"; then
