@@ -37,7 +37,7 @@ services:
         image: postgres:18
         restart: always
         healthcheck:
-            test: ["CMD", "pg_isready", "-U" "postgres"]
+            test: ["CMD", "pg_isready", "-U", "postgres"]
             interval: 3s
             timeout: 5s
             retries: 5
