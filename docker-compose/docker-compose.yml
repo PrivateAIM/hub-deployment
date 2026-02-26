@@ -1,6 +1,6 @@
 version: "3.9"
 volumes:
-    mysql:
+    postgres:
         driver: local
     minio:
         driver: local
@@ -33,11 +33,11 @@ services:
             - GF_SECURITY_ADMIN_PASSWORD=admin
         networks:
             hub:
-    mysql:
-        image: mysql:9
+    postgres:
+        image: postgres:18
         restart: always
         healthcheck:
-            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            test: ["CMD", "pg_isready", "-U" "postgres"]
             interval: 3s
             timeout: 5s
             retries: 5
@@ -45,7 +45,7 @@ services:
             MYSQL_ROOT_HOST: "%"
             MYSQL_ROOT_PASSWORD: start123
         volumes:
-            - mysql:/var/lib/mysql
+            - postgres:/var/lib/postgresql
         networks:
             hub:
     redis:
@@ -138,16 +138,16 @@ services:
         pull_policy: always
         restart: always
         depends_on:
-            mysql:
+            postgres:
                 condition: service_healthy
             redis:
                 condition: service_healthy
             vault:
                 condition: service_healthy
         environment:
-            DB_TYPE: "mysql"
-            DB_HOST: "mysql"
-            DB_USERNAME: "root"
+            DB_TYPE: "postgres"
+            DB_HOST: "postgres"
+            DB_USERNAME: "postgres"
             DB_PASSWORD: "start123"
             DB_DATABASE: "auth"
             VAULT: start123@http://vault:8090/v1/
@@ -167,7 +167,7 @@ services:
                 condition: service_healthy
             mq:
                 condition: service_healthy
-            mysql:
+            postgres:
                 condition: service_healthy
             redis:
                 condition: service_healthy
@@ -183,9 +183,9 @@ services:
             HARBOR_URL: ${HARBOR_URL:-}
             AUTHUP_URL: http://authup:3000/
             TELEMETRY_URL: http://telemetry:3000/
-            DB_TYPE: "mysql"
-            DB_HOST: "mysql"
-            DB_USERNAME: "root"
+            DB_TYPE: "postgres"
+            DB_HOST: "postgres"
+            DB_USERNAME: "postgres"
             DB_PASSWORD: "start123"
             DB_DATABASE: "core"
             SKIP_PROJECT_APPROVAL: true
@@ -236,6 +236,8 @@ services:
         restart: always
         command: storage start
         depends_on:
+            postgres:
+                condition: service_healthy
             authup:
                 condition: service_healthy
             redis:
@@ -245,9 +247,9 @@ services:
             vault:
                 condition: service_healthy
         environment:
-            DB_TYPE: "mysql"
-            DB_HOST: "mysql"
-            DB_USERNAME: "root"
+            DB_TYPE: "postgres"
+            DB_HOST: "postgres"
+            DB_USERNAME: "postgres"
             DB_PASSWORD: "start123"
             DB_DATABASE: "storage"
             PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:3000/storage/}
@@ -263,6 +265,8 @@ services:
         restart: always
         command: telemetry cli start
         depends_on:
+            postgres:
+                condition: service_healthy
             authup:
                 condition: service_healthy
             redis:
@@ -270,9 +274,9 @@ services:
             vault:
                 condition: service_healthy
         environment:
-            DB_TYPE: "mysql"
-            DB_HOST: "mysql"
-            DB_USERNAME: "root"
+            DB_TYPE: "postgres"
+            DB_HOST: "postgres"
+            DB_USERNAME: "postgres"
             DB_PASSWORD: "start123"
             DB_DATABASE: "telemetry"
             PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:3000/telemetry/}
