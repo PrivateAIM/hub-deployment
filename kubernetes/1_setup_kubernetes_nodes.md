@@ -4,7 +4,7 @@
 
 ## Table of Contents
 
-- [Prepare Drives](#prepare-drives)
+- [Prepare Drives](#prepare-drives-optional)
 - [MicroK8s on a Debian-based System](#microk8s-on-a-debian-based-system)
   - [Automatic Installation Script](#automatic-installation-script-)
   - [1. Storage](#1-storage)
@@ -29,7 +29,7 @@ The helper script `scripts/0_format_drives.sh` partitions a disk into two equal 
 
 > Only run this on devices that are unused
 
-```
+```bash
 bash scripts/0_format_drives.sh <device>
 # e.g. bash scripts/0_format_drives.sh vdb
 ```

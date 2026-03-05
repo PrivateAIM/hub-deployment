@@ -1,5 +1,5 @@
 #!/bin/bash
-# may need to be run with "bash 01_format_drives.sh"
+# may need to be run with "bash 0_format_drives.sh"
 
 set -euo pipefail
 
@@ -35,12 +35,17 @@ if [ -b "${DISK}1" ] && [ -b "${DISK}2" ]; then
         fi
     done
 else
-    echo "Creating GPT label and two equal partitions on $DISK..."
-    sudo sfdisk "$DISK" <<SFDISK
-label: gpt
-, 50%
-, +
-SFDISK
+    echo "WARNING: This will create a new GPT label and two equal partitions on $DISK."
+    echo "         ALL existing data on $DISK will be destroyed."
+    read -r -p "Proceed with partitioning $DISK? [y/N]: " REPLY
+    if [[ ! "${REPLY:-N}" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 0
+    fi
+    sudo parted -s "$DISK" \
+        mklabel gpt \
+        mkpart primary 0% 50% \
+        mkpart primary 50% 100%
 fi
 
 for i in 1 2; do
@@ -63,7 +68,11 @@ for i in 1 2; do
     if [ "${KEEP[$((i-1))]}" = "true" ]; then
         echo "Keeping existing filesystem on $PART."
     else
-        echo "Formatting $PART as ext4 with label $LABEL..."
+        read -r -p "Format $PART as ext4 with label $LABEL? This will destroy data on this partition. [y/N]: " REPLY
+        if [[ ! "${REPLY:-N}" =~ ^[Yy]$ ]]; then
+            echo "Skipping format of $PART."
+            continue
+        fi
         sudo mkfs.ext4 -F -L "$LABEL" "$PART"
     fi
 
@@ -81,7 +90,11 @@ for i in 1 2; do
     if [[ "$REPLY" =~ ^[Yy]$ ]]; then
         sudo mkdir -p "$MOUNTPOINT"
         PARTUUID="$(sudo blkid -s PARTUUID -o value "$PART")"
-        echo "PARTUUID=${PARTUUID}  ${MOUNTPOINT}  ext4  defaults,nofail  0  2" | sudo tee -a /etc/fstab
+        if grep -q "PARTUUID=${PARTUUID}" /etc/fstab; then
+            echo "fstab entry for PARTUUID=${PARTUUID} already exists, skipping."
+        else
+            echo "PARTUUID=${PARTUUID}  ${MOUNTPOINT}  ext4  defaults,nofail  0  2" | sudo tee -a /etc/fstab
+        fi
 
         echo "Mounting $PART at $MOUNTPOINT..."
         sudo mount "$PART" "$MOUNTPOINT"
@@ -91,9 +104,10 @@ for i in 1 2; do
 done
 
 echo "Done. Partitions of $DISK have been processed."
-echo "/etc/fstab for your convenience:"
+echo "==============/etc/fstab for your convenience:"
 cat /etc/fstab
-echo "Partition PARTUUID paths for your convenience:"
+echo "==============="
+echo "==============Partition PARTUUID paths for your convenience:"
 for i in 1 2; do
     PART="${DISK}${i}"
     PARTUUID="$(sudo blkid -s PARTUUID -o value "$PART")"
