@@ -3,8 +3,6 @@ volumes:
         driver: local
     minio:
         driver: local
-    vault:
-        driver: local
 services:
     vl:
         image: victoriametrics/victoria-logs:v1.43.1
@@ -41,8 +39,7 @@ services:
             timeout: 5s
             retries: 5
         environment:
-            MYSQL_ROOT_HOST: "%"
-            MYSQL_ROOT_PASSWORD: start123
+            POSTGRES_PASSWORD: start123
         volumes:
             - postgres:/var/lib/postgresql
         networks:
@@ -88,31 +85,6 @@ services:
             RABBITMQ_DEFAULT_PASS: start123
         networks:
             hub:
-    vault:
-        image: hashicorp/vault
-        pull_policy: always
-        healthcheck:
-            test:
-                [
-                    "CMD",
-                    "wget",
-                    "--spider",
-                    "--proxy",
-                    "off",
-                    "http://127.0.0.1:8090/v1/sys/health?standbyok=true",
-                ]
-            interval: 10s
-            timeout: 3s
-            retries: 10
-            start_period: 5s
-        volumes:
-            - vault:/vault
-        environment:
-            SKIP_SETCAP: true
-            VAULT_DEV_ROOT_TOKEN_ID: start123
-            VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8090
-        networks:
-            hub:
     nginx:
         #image: nginxproxy/nginx-proxy:alpine
         image: nginx:latest
@@ -141,20 +113,19 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_healthy
-            vault:
-                condition: service_healthy
         environment:
             DB_TYPE: "postgres"
             DB_HOST: "postgres"
             DB_USERNAME: "postgres"
             DB_PASSWORD: "start123"
             DB_DATABASE: "auth"
-            VAULT: start123@http://vault:8090/v1/
             REDIS: redis://redis
             PUBLIC_URL: ${AUTHUP_PUBLIC_URL:-http://localhost:3000/auth/}
             COOKIE_DOMAIN: ${COOKIE_DOMAIN:-localhost}
             AUTHORIZE_REDIRECT_URL: ${PUBLIC_URL:-http://localhost:3000/}
-            ROBOT_ADMIN_ENABLED: true
+            CLIENT_SYSTEM_ENABLED: "true"
+            CLIENT_SYSTEM_SECRET: "start123"
+            CLIENT_SYSTEM_SECRET_RESET: "true"
         networks:
             hub:
     core:
@@ -170,18 +141,18 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_healthy
-            vault:
-                condition: service_healthy
             vl:
                 condition: service_healthy
         environment:
             REDIS_CONNECTION_STRING: redis://redis
-            VAULT_CONNECTION_STRING: start123@http://vault:8090/v1/
             RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
             PUBLIC_URL: ${CORE_PUBLIC_URL:-http://localhost:3000/core/}
             HARBOR_URL: ${HARBOR_URL:-}
             AUTHUP_URL: http://authup:3000/
             TELEMETRY_URL: http://telemetry:3000/
+            CLIENT_ID: "system"
+            CLIENT_SECRET: "start123"
+            REALM: "master"
             DB_TYPE: "postgres"
             DB_HOST: "postgres"
             DB_USERNAME: "postgres"
@@ -195,18 +166,18 @@ services:
     messenger:
         image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
-        command: messenger start
+        command: messenger cli start
         depends_on:
             authup:
                 condition: service_healthy
             redis:
                 condition: service_healthy
-            vault:
-                condition: service_healthy
         environment:
             REDIS_CONNECTION_STRING: redis://redis
-            VAULT_CONNECTION_STRING: start123@http://vault:8090/v1/
             AUTHUP_URL: http://authup:3000/
+            CLIENT_ID: "system"
+            CLIENT_SECRET: "start123"
+            REALM: "master"
         networks:
             hub:
     core-worker:
@@ -218,22 +189,22 @@ services:
                 condition: service_healthy
             mq:
                 condition: service_healthy
-            vault:
-                condition: service_healthy
         volumes:
             - "/var/run/docker.sock:/var/run/docker.sock:ro"
         environment:
             RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
-            VAULT_CONNECTION_STRING: start123@http://vault:8090/v1/
             AUTHUP_URL: http://authup:3000/
             CORE_URL: http://core:3000/
             STORAGE_URL: http://storage:3000/
+            CLIENT_ID: "system"
+            CLIENT_SECRET: "start123"
+            REALM: "master"
         networks:
             hub:
     storage:
         image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
-        command: storage start
+        command: storage cli start
         depends_on:
             postgres:
                 condition: service_healthy
@@ -242,8 +213,6 @@ services:
             redis:
                 condition: service_healthy
             minio:
-                condition: service_healthy
-            vault:
                 condition: service_healthy
         environment:
             DB_TYPE: "postgres"
@@ -255,8 +224,10 @@ services:
             RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
             REDIS_CONNECTION_STRING: redis://redis
             MINIO_CONNECTION_STRING: http://admin:start123@minio:9000
-            VAULT_CONNECTION_STRING: start123@http://vault:8090/v1/
             AUTHUP_URL: http://authup:3000/
+            CLIENT_ID: "system"
+            CLIENT_SECRET: "start123"
+            REALM: "master"
         networks:
             hub:
     telemetry:
@@ -270,8 +241,6 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_healthy
-            vault:
-                condition: service_healthy
         environment:
             DB_TYPE: "postgres"
             DB_HOST: "postgres"
@@ -281,9 +250,11 @@ services:
             PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:3000/telemetry/}
             RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
             REDIS_CONNECTION_STRING: redis://redis
-            VAULT_CONNECTION_STRING: start123@http://vault:8090/v1/
             AUTHUP_URL: http://authup:3000/
             VICTORIA_LOGS_URL: http://vl:9428/
+            CLIENT_ID: "system"
+            CLIENT_SECRET: "start123"
+            REALM: "master"
         networks:
             hub:
     ui:
