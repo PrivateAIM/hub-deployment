@@ -1,16 +1,20 @@
-# OpenEBS/Mayastor for FLAME
-OpenEBS is a chart that provides extra storage options. We will be using Mayastor Replicated Storage to synchronize Persistant Volumes across multiple nodes in the cluster. This aims to ensure no data is lost when a node fails. With extra configuration, it enables automatic failover.
+# 2 — Storage Replication (OpenEBS/Mayastor) (optional)
+**For multi-node production deployments**
+
+> **Part 2 of 3** — [1: K8s Node Setup](1_setup_kubernetes_nodes.md) · [3: Install FLAME Hub Chart](3_install_flame_hub_chart.md)
+
+OpenEBS is a chart that provides extra storage options. We will be using Mayastor Replicated Storage to synchronize Persistent Volumes across multiple nodes in the cluster. This aims to ensure no data is lost when a node fails. With extra configuration, it enables automatic failover.
 
 ## Node Setup
-Before installing OpenEBS, you must prepare the k8s nodes you want to use for mayastor.
+Before installing OpenEBS, you must prepare the k8s nodes you want to use for Mayastor.
 
-### Automatic script 🤖
-Use `prepare_for_mayastor.sh` script in `scripts/`.
-> The script has been tested in Debian.
+### Automatic Script 🤖
+Use the `2_prepare_for_mayastor.sh` script in `scripts/`.
+> The script has been tested on Debian.
 >
 > The script can safely be run multiple times.
 ```
-sudo ./scripts/prepare_for_mayastor.sh
+sudo ./scripts/2_prepare_for_mayastor.sh
 ```
 
 Alternatively, you can manually do the following:
@@ -57,25 +61,5 @@ Installing this chart will add a new StorageClass to your cluster. You can tell 
 1. **Clone the [Flame Helm Repository](https://github.com/PrivateAIM/helm/) and navigate to `charts/third-party/openebs`**
 2. Make sure you have 3 nodes in your cluster.
 3. Make sure you have read the previous section on node preparation for mayastor.
-    * If not already labled, label your nodes:
-`kubectl label node <node_name> openebs.io/engine=mayastor`
-4. Clone `values.yaml` to `values_local.yaml`.
-5. Fill in your kubelet path and populate the disk pools section with your unmounted drives.
-6. Install the chart:
-
-```
-helm dependency update .
-```
-```
-helm install openebs . --namespace openebs --create-namespace -f values_local.yaml
-```
-
-7. Verify disk pools and `mayastor` storage classes:
-```
-kubectl get diskpools -n openebs
-```
-Note: Disk Pools may need 1-5 minutes to be ready
-```
-kubectl get storageclasses
-```
-8. Edit your FLAME-Hub values-file to use the new StorageClass. A reinstall of the Hub will probably be required.
+4. Follow the installation instructions of the [chart's README](https://github.com/PrivateAIM/helm/tree/master/charts/third-party/openebs#readme)
+5. For the following installation of the FLAME Hub Helm chart, remember to configure the `mayastor-replicated` storage class for stateful services. See example comments in `charts/flame-hub/values.yaml` (search for mayastor)

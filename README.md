@@ -8,11 +8,19 @@ This repository contains instructions on how to deploy the HUB ecosystem.
 
 
 ## Kubernetes
-### FLAME Hub Helm chart
-**📜 See the [Kubernetes Instructions Page](kubernetes/kubernetes-instructions.md) for details and examples.**
 
 The source code for the Helm chart is located in the [Helm repository](https://github.com/PrivateAIM/helm/tree/master/charts/flame-hub).
-It can be installed in a k8s cluster using:
+
+### Guides
+
+Follow these guides in order:
+
+1. **📜 [K8s Node Setup](kubernetes/1_setup_kubernetes_nodes.md)** — MicroK8s / Minikube installation & configuration
+2. **📜 [Storage Replication](kubernetes/2_setup_storage_replication.md)** — OpenEBS / Mayastor setup *(optional, for multi-node clusters)*
+3. **📜 [Install FLAME Hub Chart](kubernetes/3_install_flame_hub_chart.md)** — Helm chart installation & configuration
+
+### Quick Install
+
 ```
 helm repo add flame https://PrivateAIM.github.io/helm
 helm repo update
@@ -20,11 +28,7 @@ helm repo update
 ```
 helm install <release-name> -f <values-file> flame/hub
 ```
-> ‼️The Chart will need some minimal configuration to work properly. Read the [Kubernetes Instructions Page](kubernetes/kubernetes-instructions.md)
-
-### Kubernetes Node Setup Instructions:
-* **📜 [K8s Node Setup using MicroK8s or Minikube](kubernetes/kubernetes-instructions.md)**
-* **📜 [Guide for setting up Mayastor Storage Replication](kubernetes/mayastor-instructions.md)**
+> ‼️ The chart needs minimal configuration to work properly. See [Install FLAME Hub Chart](kubernetes/3_install_flame_hub_chart.md) for details.
 
 ## Docker Compose
 **📜 See the [Docker Compose Instructions Page](docker-compose/docker-compose-instructions.md) for details and examples.**
