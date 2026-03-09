@@ -73,7 +73,14 @@ b) Mount (or symlink) the SNAP_COMMON directory to your preferred destination:
 sudo mount --bind /mnt/vdb1/microk8s/common /var/snap/microk8s/common
 
 # for persistence
-echo "/mnt/vdb1/microk8s/common /var/snap/microk8s/common none bind 0 0" | sudo tee -a /etc/fstab
+echo "/mnt/vdb1/microk8s/common /var/snap/microk8s/common none bind,_netdev,x-systemd.requires=/mnt/vdb1,x-systemd.after=/mnt/vdb1,x-systemd.before=snap.microk8s.daemon-containerd.service,x-systemd.before=snap.microk8s.daemon-kubelite.service 0 0" | sudo tee -a /etc/fstab
+```
+
+For hosts where this storage can disappear during shutdown/reboot (for example network-backed storage), install a shutdown hook so MicroK8s is stopped before unmount/network teardown:
+```bash
+sudo install -m 0644 scripts/microk8s-graceful-stop.service /etc/systemd/system/microk8s-graceful-stop.service
+sudo systemctl daemon-reload
+sudo systemctl enable microk8s-graceful-stop.service
 ```
 
 ### 2. Install MicroK8s using Snap

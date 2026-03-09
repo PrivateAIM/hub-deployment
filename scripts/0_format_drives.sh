@@ -93,7 +93,7 @@ for i in 1 2; do
         if grep -q "PARTUUID=${PARTUUID}" /etc/fstab; then
             echo "fstab entry for PARTUUID=${PARTUUID} already exists, skipping."
         else
-            echo "PARTUUID=${PARTUUID}  ${MOUNTPOINT}  ext4  defaults,nofail  0  2" | sudo tee -a /etc/fstab
+            echo "PARTUUID=${PARTUUID}  ${MOUNTPOINT}  ext4  defaults,nofail,x-systemd.device-timeout=30s  0  2" | sudo tee -a /etc/fstab
         fi
 
         echo "Mounting $PART at $MOUNTPOINT..."

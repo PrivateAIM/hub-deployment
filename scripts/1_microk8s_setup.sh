@@ -1,10 +1,13 @@
 
 #!/bin/bash
 
-set -e 
-set -u 
+set -euo pipefail
 
 MK8S="/snap/bin/microk8s"
+MICROK8S_SHUTDOWN_UNIT="/etc/systemd/system/microk8s-graceful-stop.service"
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+MICROK8S_SHUTDOWN_SOURCE="${SCRIPT_DIR}/microk8s-graceful-stop.service"
 
 confirm_step() {
     local step_label="$1"
@@ -40,7 +43,8 @@ if confirm_step "Step 1: Configure custom storage volume"; then
     fi
 
     if ! grep -q "/var/snap/microk8s/common" /etc/fstab; then
-        echo "$SNAP_COMMON_PATH/microk8s/common /var/snap/microk8s/common none bind 0 0" | sudo tee -a /etc/fstab
+        # Keep mount ordering explicit so MicroK8s shuts down before storage is unmounted.
+        echo "$SNAP_COMMON_PATH/microk8s/common /var/snap/microk8s/common none bind,_netdev,x-systemd.requires=$SNAP_COMMON_PATH,x-systemd.after=$SNAP_COMMON_PATH,x-systemd.before=snap.microk8s.daemon-containerd.service,x-systemd.before=snap.microk8s.daemon-kubelite.service 0 0" | sudo tee -a /etc/fstab
     else
         echo "A mount point for /var/snap/microk8s/common already exists in /etc/fstab."
     fi
@@ -94,6 +98,19 @@ if confirm_step "Step 6: Persisting /snap/bin in PATH"; then
     if ! grep -q "/snap/bin" "$HOME/.bashrc"; then
         echo 'export PATH=$PATH:/snap/bin' >> "$HOME/.bashrc"
     fi
+fi
+
+if confirm_step "Step 7: Install graceful MicroK8s shutdown hook (needed when using network-backed storage)"; then
+    if [ ! -f "$MICROK8S_SHUTDOWN_SOURCE" ]; then
+        echo "[ERROR] Missing service file: $MICROK8S_SHUTDOWN_SOURCE"
+        exit 1
+    fi
+
+    sudo install -m 0644 "$MICROK8S_SHUTDOWN_SOURCE" "$MICROK8S_SHUTDOWN_UNIT"
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable microk8s-graceful-stop.service
+    echo "[SUCCESS] Graceful shutdown hook installed and enabled."
 fi
 
 echo "Installation complete."
