@@ -1,14 +1,17 @@
 [Unit]
 Description=Gracefully stop MicroK8s before shutdown
-DefaultDependencies=no
+DefaultDependencies=yes
+ConditionPathExists=/snap/bin/microk8s
+Requires=snapd.service
+After=snapd.service local-fs.target network-online.target
 Before=umount.target shutdown.target reboot.target halt.target poweroff.target
-After=local-fs.target network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/snap stop microk8s
-TimeoutStartSec=180
+ExecStart=/usr/bin/true
+ExecStop=/usr/bin/timeout --signal=TERM 75 /bin/sh -c '/snap/bin/microk8s stop || /usr/bin/snap stop microk8s'
+TimeoutStopSec=90
 RemainAfterExit=yes
 
 [Install]
-WantedBy=halt.target reboot.target poweroff.target shutdown.target
+WantedBy=multi-user.target

@@ -109,7 +109,7 @@ if confirm_step "Step 7: Install graceful MicroK8s shutdown hook (needed when us
     sudo install -m 0644 "$MICROK8S_SHUTDOWN_SOURCE" "$MICROK8S_SHUTDOWN_UNIT"
 
     sudo systemctl daemon-reload
-    sudo systemctl enable microk8s-graceful-stop.service
+    sudo systemctl enable --now microk8s-graceful-stop.service
     echo "[SUCCESS] Graceful shutdown hook installed and enabled."
 fi
 
