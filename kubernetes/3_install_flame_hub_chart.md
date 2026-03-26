@@ -18,6 +18,19 @@ The chart will use whichever storage class is the default in your cluster, unles
 ## Ingress
 See the `values.yaml` for ingress options. The default ingress configuration will use path-based routing for all services except Harbor (which requires its own hostname). You will have to provide an extra (sub)domain if you want to use the harbor component of this chart. The current setup does not automatically acquire TLS certificates.
 
+## Gateway API
+Gateway API is the newer alternative to ingress. The FLAME Hub has been tested with the F5 NGINX Gateway Fabric. To be able to upload large files and log into the UI, custom nginx configuration is generally required. When using Ingress, this is done via annotations. Gateway API theoretically also supports this, but NGINX Gateway Fabric (NGF) requires extra resources called "snippets". The FLAME-Hub charts provides these snippets, so all you have to do is set the `snippets` field to `true` in the values. For this reason it is strongly suggested to use F5 NGF.
+You can install it into your cluster using:
+```bash
+helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
+  -n nginx-gateway \
+  --set nginxGateway.snippets.enable=true \
+  --set nginx.kind=daemonSet \
+  --set nginx.service.type=NodePort \
+  --set nginx.service.externalTrafficPolicy=Local \
+  --set-json 'nginx.service.nodePorts=[{"port":31437,"listenerPort":80}, {"port":30478,"listenerPort":8443}]'
+```
+Note: This will expose the Hub on all k8s nodes at port 31437, so configure your public facing proxy/loadbalancer accordingly.
 ## Installing the FLAME Hub Chart
 
 ### 1. Option: Official Chart Repo
