@@ -35,17 +35,24 @@ if [ -b "${DISK}1" ] && [ -b "${DISK}2" ]; then
         fi
     done
 else
-    echo "WARNING: This will create a new GPT label and two equal partitions on $DISK."
+    echo "WARNING: This will create a new GPT label and two partitions on $DISK."
     echo "         ALL existing data on $DISK will be destroyed."
     read -r -p "Proceed with partitioning $DISK? [y/N]: " REPLY
     if [[ ! "${REPLY:-N}" =~ ^[Yy]$ ]]; then
         echo "Aborted."
         exit 0
     fi
+    read -r -p "Percentage of disk for the first partition [50]: " PCT
+    PCT="${PCT:-50}"
+    if ! [[ "$PCT" =~ ^[0-9]+$ ]] || [ "$PCT" -lt 1 ] || [ "$PCT" -gt 99 ]; then
+        echo "Error: percentage must be an integer between 1 and 99"
+        exit 1
+    fi
+    echo "Creating partition 1 (0%–${PCT}%) and partition 2 (${PCT}%–100%)."
     sudo parted -s "$DISK" \
         mklabel gpt \
-        mkpart primary 0% 50% \
-        mkpart primary 50% 100%
+        mkpart primary 0% "${PCT}%" \
+        mkpart primary "${PCT}%" 100%
 fi
 
 for i in 1 2; do
