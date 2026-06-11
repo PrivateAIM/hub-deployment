@@ -63,3 +63,54 @@ Installing this chart will add a new StorageClass to your cluster. You can tell 
 3. Make sure you have read the previous section on node preparation for mayastor.
 4. Follow the installation instructions of the [chart's README](https://github.com/PrivateAIM/helm/tree/master/charts/third-party/openebs#readme)
 5. For the following installation of the FLAME Hub Helm chart, remember to configure the `mayastor-replicated` storage class for stateful services. See example comments in `charts/flame-hub/values.yaml` (search for mayastor)
+
+## Rebooting Nodes When Using Replicated Storage
+Install one of these plugins for kubectl first:
+- [kubectl openebs plugin](https://openebs.io/docs/user-guides/kubectl-openebs)
+- [kubectl mayastor plugin](https://openebs.io/docs/user-guides/replicated-storage-user-guide/replicated-pv-mayastor/advanced-operations/kubectl-plugin)
+
+Notes:
+- `<namespace>` is the OpenEBS namespace (usually `openebs`).
+- `reboot-cordon` and `reboot-drain` are arbitrary labels for this operation.
+- List available nodes with `kubectl get nodes`.
+
+1. **Mark the node as cordoned in Mayastor**
+```
+kubectl mayastor cordon node -n <namespace> <node_name> reboot-cordon
+```
+2. **Verify the Mayastor cordon state**
+```
+kubectl mayastor get cordon nodes -n <namespace>
+```
+3. **Mark the node as drained in Mayastor**
+```
+kubectl mayastor drain node -n <namespace> <node_name> reboot-drain
+```
+4. **Verify the Mayastor drain state**
+```
+kubectl mayastor get drain nodes -n <namespace>
+```
+5. **Drain Kubernetes workloads from the node**
+```
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force
+```
+6. **Reboot the node**
+```
+reboot
+```
+7. **Allow Kubernetes scheduling on the node again**
+```
+kubectl uncordon <node-name>
+```
+8. **Remove the Mayastor cordon markers**
+```
+kubectl mayastor uncordon node <node_name> reboot-cordon -n <namespace>
+```
+```
+kubectl mayastor uncordon node <node_name> reboot-drain -n <namespace>
+```
+9. **Confirm volumes are healthy after reboot**
+```
+kubectl mayastor get volumes -n openebs
+```
+
