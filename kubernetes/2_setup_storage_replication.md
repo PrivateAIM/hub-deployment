@@ -114,3 +114,23 @@ kubectl mayastor uncordon node <node_name> reboot-drain -n <namespace>
 kubectl mayastor get volumes -n openebs
 ```
 
+## Upgrading the OpenEBS chart
+1. **Trigger the Helm upgrade**
+2. **If the upgrade succeeds, you are good to go. However, the upgrade will likely be pending indefinitely because io-engine pods need to be replaced manually. In that case, proceed with steps 3 etc.**
+3. **Drain a node**
+```
+kubectl mayastor drain node -n <namespace> <node_name> upgrade
+```
+4. **Delete the io pod on that node**
+```
+kubectl delete pod -n <namespace> openebs-io-engine-12345 # the pod running on the node you drained
+```
+5. **Uncordon Node**
+```
+kubectl mayastor uncordon node <node_name> upgrade -n <namespace>
+```
+6. **Verify Volumes are "online" with**
+```
+kubectl mayastor get volumes -n openebs
+```
+7. **Repeat with the rest of your nodes** 
