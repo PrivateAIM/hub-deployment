@@ -175,6 +175,8 @@ services:
                 condition: service_healthy
             mq:
                 condition: service_healthy
+            postgres:
+                condition: service_healthy
         environment:
             REDIS_CONNECTION_STRING: redis://redis
             RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
