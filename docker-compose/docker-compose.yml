@@ -126,7 +126,7 @@ services:
             CLIENT_SYSTEM_ENABLED: "true"
             CLIENT_SYSTEM_SECRET: "start123"
             CLIENT_SYSTEM_SECRET_RESET: "true"
-            TRUSTED_ORIGINS: "http://localhost:3000"
+            TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://localhost:3000}
         networks:
             hub:
     core:
