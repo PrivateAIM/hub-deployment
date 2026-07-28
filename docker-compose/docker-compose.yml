@@ -179,7 +179,7 @@ services:
                 condition: service_healthy
         environment:
             REDIS_CONNECTION_STRING: redis://redis
-            RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@172.40.1.1}
+            RABBITMQ_CONNECTION_STRING: ${MQ_CONNECTION_URL:-amqp://root:start123@mq:5672}
             AUTHUP_URL: http://authup:3000/
             CLIENT_ID: "system"
             CLIENT_SECRET: "start123"
