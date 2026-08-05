@@ -127,6 +127,8 @@ services:
             CLIENT_SYSTEM_SECRET: "start123"
             CLIENT_SYSTEM_SECRET_RESET: "true"
             TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://localhost:3000}
+        volumes:
+          - "./flame-authup.yaml:/usr/src/app/writable/provisioning/flame-authup.yaml:ro"
         networks:
             hub:
     core:
