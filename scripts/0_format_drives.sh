@@ -1,122 +1,78 @@
-#!/bin/bash
-# may need to be run with "bash 0_format_drives.sh"
+#!/usr/bin/env bash
 
 set -euo pipefail
 
-if [ -z "${1:-}" ]; then
+if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <device>"
-    echo "  e.g. $0 vdb"
+    echo "Example: $0 /dev/vdb"
     exit 1
 fi
 
-DEVICE="$1"
-DISK="/dev/${DEVICE}"
+if [ "${EUID}" -eq 0 ]; then
+    echo "Run this script as a regular user; it invokes sudo for privileged operations."
+    exit 1
+fi
+
+case "$1" in
+    /dev/*) DISK="$1" ;;
+    *) DISK="/dev/$1" ;;
+esac
 
 if [ ! -b "$DISK" ]; then
-    echo "Error: $DISK is not a block device"
+    echo "Error: $DISK is not a block device."
     exit 1
 fi
 
-KEEP=(false false)
-
-if [ -b "${DISK}1" ] && [ -b "${DISK}2" ]; then
-    echo "Existing partitions found on $DISK."
-    for i in 1 2; do
-        PART="${DISK}${i}"
-        FSTYPE="$(sudo blkid -s TYPE -o value "$PART" 2>/dev/null || true)"
-        if [ -n "$FSTYPE" ]; then
-            echo "  $PART: $FSTYPE filesystem detected."
-            read -r -p "  Keep existing filesystem on $PART? [Y/n]: " REPLY
-            if [[ "${REPLY:-Y}" =~ ^[Yy]$ ]]; then
-                KEEP[$((i-1))]=true
-            fi
-        else
-            echo "  $PART: no filesystem detected."
-        fi
-    done
-else
-    echo "WARNING: This will create a new GPT label and two partitions on $DISK."
-    echo "         ALL existing data on $DISK will be destroyed."
-    read -r -p "Proceed with partitioning $DISK? [y/N]: " REPLY
-    if [[ ! "${REPLY:-N}" =~ ^[Yy]$ ]]; then
-        echo "Aborted."
-        exit 0
-    fi
-    read -r -p "Percentage of disk for the first partition [50]: " PCT
-    PCT="${PCT:-50}"
-    if ! [[ "$PCT" =~ ^[0-9]+$ ]] || [ "$PCT" -lt 1 ] || [ "$PCT" -gt 99 ]; then
-        echo "Error: percentage must be an integer between 1 and 99"
-        exit 1
-    fi
-    echo "Creating partition 1 (0%–${PCT}%) and partition 2 (${PCT}%–100%)."
-    sudo parted -s "$DISK" \
-        mklabel gpt \
-        mkpart primary 0% "${PCT}%" \
-        mkpart primary "${PCT}%" 100%
+if lsblk -nrpo MOUNTPOINT "$DISK" | grep -qv '^$'; then
+    echo "Error: $DISK or one of its partitions is mounted. Unmount it before continuing."
+    lsblk "$DISK"
+    exit 1
 fi
 
-for i in 1 2; do
-    PART="${DISK}${i}"
+DEVICE_NAME="$(basename "$DISK")"
+if [[ "$DEVICE_NAME" =~ [0-9]$ ]]; then
+    PARTITION="${DISK}p1"
+else
+    PARTITION="${DISK}1"
+fi
 
-    # Wait for partition node to appear
-    for attempt in $(seq 1 10); do
-        [ -b "$PART" ] && break
-        sleep 1
-    done
+LABEL="${DEVICE_NAME//[^a-zA-Z0-9_-]/-}-data"
+MOUNT_POINT="/mnt/${DEVICE_NAME}1"
 
-    if [ ! -b "$PART" ]; then
-        echo "Error: partition $PART did not appear"
-        exit 1
-    fi
+echo "The following device will be replaced with one GPT partition and one ext4 filesystem:"
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS "$DISK"
+echo
+echo "WARNING: ALL DATA ON $DISK WILL BE DESTROYED."
+read -r -p "Type the exact device path '$DISK' to continue: " CONFIRMATION
+if [ "$CONFIRMATION" != "$DISK" ]; then
+    echo "Aborted."
+    exit 0
+fi
 
-    LABEL="${DEVICE}${i}"
-    MOUNTPOINT="/mnt/${LABEL}"
+sudo parted -s "$DISK" \
+    mklabel gpt \
+    mkpart primary ext4 1MiB 100%
+sudo partprobe "$DISK"
 
-    if [ "${KEEP[$((i-1))]}" = "true" ]; then
-        echo "Keeping existing filesystem on $PART."
-    else
-        read -r -p "Format $PART as ext4 with label $LABEL? This will destroy data on this partition. [y/N]: " REPLY
-        if [[ ! "${REPLY:-N}" =~ ^[Yy]$ ]]; then
-            echo "Skipping format of $PART."
-            continue
-        fi
-        sudo mkfs.ext4 -F -L "$LABEL" "$PART"
-    fi
-
-    if [ "$i" -eq 1 ]; then
-        DEFAULT="Y"
-        PROMPT="Mount $PART and add to fstab? [Y/n]: "
-    else
-        DEFAULT="N"
-        PROMPT="Mount $PART and add to fstab? [y/N]: "
-    fi
-
-    read -r -p "$PROMPT" REPLY
-    REPLY="${REPLY:-$DEFAULT}"
-
-    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-        sudo mkdir -p "$MOUNTPOINT"
-        PARTUUID="$(sudo blkid -s PARTUUID -o value "$PART")"
-        if grep -q "PARTUUID=${PARTUUID}" /etc/fstab; then
-            echo "fstab entry for PARTUUID=${PARTUUID} already exists, skipping."
-        else
-            echo "PARTUUID=${PARTUUID}  ${MOUNTPOINT}  ext4  defaults,nofail  0  2" | sudo tee -a /etc/fstab
-        fi
-
-        echo "Mounting $PART at $MOUNTPOINT..."
-        sudo mount "$PART" "$MOUNTPOINT"
-    else
-        echo "Skipping mount and fstab entry for $PART."
-    fi
+for _ in $(seq 1 10); do
+    [ -b "$PARTITION" ] && break
+    sleep 1
 done
 
-echo "Done. Partitions of $DISK have been processed."
-echo "==============/etc/fstab for your convenience:"
-cat /etc/fstab
-echo "==============="
-echo "==============Partition PARTUUID paths for your convenience:"
-for i in 1 2; do
-    PART="${DISK}${i}"
-    PARTUUID="$(sudo blkid -s PARTUUID -o value "$PART")"
-    echo "/dev/disk/by-partuuid/$PARTUUID  $PART"
-done
+if [ ! -b "$PARTITION" ]; then
+    echo "Error: partition $PARTITION did not appear."
+    exit 1
+fi
+
+sudo mkfs.ext4 -F -L "$LABEL" "$PARTITION"
+sudo mkdir -p "$MOUNT_POINT"
+
+PARTUUID="$(sudo blkid -s PARTUUID -o value "$PARTITION")"
+if ! grep -qE "^[^#]*PARTUUID=${PARTUUID}[[:space:]]" /etc/fstab; then
+    echo "PARTUUID=${PARTUUID}  ${MOUNT_POINT}  ext4  defaults,nofail  0  2" | sudo tee -a /etc/fstab >/dev/null
+fi
+
+sudo mount "$MOUNT_POINT"
+
+echo "Prepared $PARTITION and mounted it at $MOUNT_POINT."
+echo "Use this mount as the optional MicroK8s data path in scripts/1_microk8s_setup.sh."
