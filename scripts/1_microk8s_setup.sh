@@ -51,7 +51,7 @@ if confirm_step "Step 2: Installing Snapd and MicroK8s"; then
     sudo apt update -qq
     sudo apt install -y snapd
 
-    DEFAULT_CHANNEL="1.32"
+    DEFAULT_CHANNEL="stable"
     read -rp "Optional: Specify MicroK8s channel [default: $DEFAULT_CHANNEL]: " MICROK8S_CHANNEL
     MICROK8S_CHANNEL="${MICROK8S_CHANNEL:-$DEFAULT_CHANNEL}"
 
