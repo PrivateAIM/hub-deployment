@@ -1,0 +1,51 @@
+---
+- name: Look up account details for {{ microk8s_operator }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ microk8s_operator }}"
+    fail_key: true
+
+- name: Look up primary group for {{ microk8s_operator }}
+  ansible.builtin.command:
+    argv:
+      - id
+      - -gn
+      - "{{ microk8s_operator }}"
+  register: microk8s_operator_group
+  changed_when: false
+  check_mode: false
+
+- name: Generate MicroK8s kubeconfig for {{ microk8s_operator }}
+  ansible.builtin.command: /snap/bin/microk8s config
+  register: microk8s_operator_kubeconfig
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Create kubeconfig directory for {{ microk8s_operator }}
+  ansible.builtin.file:
+    path: "{{ ansible_facts.getent_passwd[microk8s_operator][4] }}/.kube"
+    state: directory
+    owner: "{{ microk8s_operator }}"
+    group: "{{ microk8s_operator_group.stdout }}"
+    mode: "0700"
+
+- name: Write kubeconfig for {{ microk8s_operator }}
+  ansible.builtin.copy:
+    content: "{{ microk8s_operator_kubeconfig.stdout }}\n"
+    dest: "{{ ansible_facts.getent_passwd[microk8s_operator][4] }}/.kube/config"
+    owner: "{{ microk8s_operator }}"
+    group: "{{ microk8s_operator_group.stdout }}"
+    mode: "0600"
+  no_log: true
+
+- name: Add snap commands to the PATH for {{ microk8s_operator }}
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_facts.getent_passwd[microk8s_operator][4] }}/.bashrc"
+    regexp: '^export PATH=.*:/snap/bin'
+    line: 'export PATH="$PATH:/snap/bin"'
+    insertafter: EOF
+    create: true
+    owner: "{{ microk8s_operator }}"
+    group: "{{ microk8s_operator_group.stdout }}"
+    mode: "0644"

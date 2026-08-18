@@ -1,0 +1,17 @@
+---
+microk8s_channel: 1.36/stable
+
+# Device dedicated to MicroK8s snap data (for example /dev/vdb). The role
+# formats it as ext4 when it has no filesystem, then mounts it below.
+microk8s_snap_data_device: ''
+microk8s_snap_data_path: /mnt/microk8s
+
+microk8s_addons:
+  - storage
+  - metrics-server
+
+# List operator account names explicitly in inventory or group_vars.
+microk8s_users: []
+
+microk8s_create_command_aliases: true
+microk8s_ready_timeout: 600

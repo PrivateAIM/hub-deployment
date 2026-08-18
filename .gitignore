@@ -97,3 +97,6 @@ sw.*
 # Vim swap files
 *.swp
 .nx
+
+# Local Ansible inventory may contain infrastructure addresses and SSH settings.
+ansible/inventory/hosts.yml

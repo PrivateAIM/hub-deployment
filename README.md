@@ -10,3 +10,8 @@ those guides is in the
 
 The FLAME Helm charts and their value reference are maintained in
 [`PrivateAIM/helm`](https://github.com/PrivateAIM/helm).
+
+## Ansible Role for Microk8s nodes
+
+Use the [`ansible/`](ansible/) playbooks to prepare one or more standalone MicroK8s hosts over SSH
+and perform Debian package upgrades. See the Ansible README for inventory and execution commands.

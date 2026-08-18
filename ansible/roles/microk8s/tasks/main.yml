@@ -1,0 +1,454 @@
+---
+- name: Verify the target operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Debian"
+      - ansible_facts.distribution_major_version == "13"
+    fail_msg: >-
+      The microk8s role supports Debian 13 only; found
+      {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}.
+
+- name: Update the apt package index
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install snapd
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+
+- name: Configure persistent kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/flame-microk8s.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      overlay
+      br_netfilter
+  notify: Load MicroK8s kernel modules
+
+- name: Configure Kubernetes networking sysctls
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-flame-kubernetes.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+  notify: Apply Kubernetes sysctl settings
+
+- name: Apply host kernel configuration before installing MicroK8s
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify that a MicroK8s data device was configured
+  ansible.builtin.assert:
+    that:
+      - microk8s_snap_data_device | length > 0
+      - microk8s_snap_data_device is match('^/dev/\S+$')
+    fail_msg: >-
+      Set microk8s_snap_data_device to the dedicated block device, for example
+      /dev/vdb.
+
+- name: Check the configured MicroK8s data device
+  ansible.builtin.stat:
+    path: "{{ microk8s_snap_data_device }}"
+    follow: true
+  register: microk8s_snap_data_device_stat
+
+- name: Require a block device for MicroK8s data
+  ansible.builtin.assert:
+    that: microk8s_snap_data_device_stat.stat.isblk | default(false)
+    fail_msg: >-
+      {{ microk8s_snap_data_device }} does not exist or is not a block device.
+      Check the host with lsblk and set microk8s_snap_data_device to the actual
+      disk or partition. Existing filesystems are reused and are not formatted.
+
+- name: Check whether the MicroK8s data device or a child is mounted
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - -nrpo
+      - MOUNTPOINT
+      - "{{ microk8s_snap_data_device }}"
+  register: microk8s_snap_data_device_mounts
+  changed_when: false
+  check_mode: false
+
+- name: Refuse to use a mounted MicroK8s data device
+  ansible.builtin.assert:
+    that:
+      - >-
+        microk8s_snap_data_device_mounts.stdout_lines
+        | map('trim')
+        | reject('equalto', microk8s_snap_data_path)
+        | reject('equalto', '')
+        | list | length == 0
+    fail_msg: >-
+      {{ microk8s_snap_data_device }} or one of its partitions is mounted
+      somewhere other than {{ microk8s_snap_data_path }}; unmount it first.
+  when: not ansible_check_mode
+
+- name: Check whether the MicroK8s data device has child devices
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - -nrpo
+      - TYPE
+      - "{{ microk8s_snap_data_device }}"
+  register: microk8s_snap_data_device_types
+  changed_when: false
+  check_mode: false
+
+- name: Require a whole device or partition without nested devices
+  ansible.builtin.assert:
+    that: microk8s_snap_data_device_types.stdout_lines | length == 1
+    fail_msg: >-
+      {{ microk8s_snap_data_device }} has partitions or other child devices;
+      specify the filesystem-containing partition instead.
+  when: not ansible_check_mode
+
+- name: Check the MicroK8s data filesystem
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - TYPE
+      - "{{ microk8s_snap_data_device }}"
+  register: microk8s_snap_data_filesystem
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Format the MicroK8s data device when it has no filesystem
+  ansible.builtin.command:
+    argv:
+      - mkfs.ext4
+      - "{{ microk8s_snap_data_device }}"
+  when:
+    - not ansible_check_mode
+    - microk8s_snap_data_filesystem.stdout | trim | length == 0
+  changed_when: true
+
+- name: Re-read the MicroK8s data filesystem type
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - TYPE
+      - "{{ microk8s_snap_data_device }}"
+  register: microk8s_snap_data_filesystem_final
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Require a filesystem on the MicroK8s data device
+  ansible.builtin.assert:
+    that: microk8s_snap_data_filesystem_final.stdout | trim | length > 0
+    fail_msg: >-
+      No filesystem was detected on {{ microk8s_snap_data_device }} after the
+      formatting step.
+  when: not ansible_check_mode
+
+- name: Read the MicroK8s data filesystem UUID
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - UUID
+      - "{{ microk8s_snap_data_device }}"
+  register: microk8s_snap_data_uuid
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Require a filesystem UUID for persistent mounting
+  ansible.builtin.assert:
+    that: microk8s_snap_data_uuid.stdout | trim | length > 0
+    fail_msg: >-
+      {{ microk8s_snap_data_device }} has no filesystem UUID and cannot be
+      mounted persistently.
+  when: not ansible_check_mode
+
+- name: Create the MicroK8s data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ microk8s_snap_data_path }}"
+    - /var/snap/microk8s/common
+
+- name: Persist the MicroK8s data filesystem mount
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^\\S+\\s+{{ microk8s_snap_data_path | regex_escape }}\\s+'
+    line: "UUID={{ microk8s_snap_data_uuid.stdout | trim }} {{ microk8s_snap_data_path }} {{ microk8s_snap_data_filesystem_final.stdout | trim }} defaults,nofail 0 2"
+    state: present
+    insertafter: EOF
+  when: not ansible_check_mode or microk8s_snap_data_uuid.stdout | trim | length > 0
+
+- name: Check the MicroK8s data filesystem mount
+  ansible.builtin.command:
+    argv:
+      - mountpoint
+      - -q
+      - "{{ microk8s_snap_data_path }}"
+  register: microk8s_snap_data_mountpoint
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Verify an existing MicroK8s data mount uses the configured device
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - -rn
+      - -S
+      - "{{ microk8s_snap_data_device }}"
+      - -T
+      - "{{ microk8s_snap_data_path }}"
+  register: microk8s_snap_data_mount_matches
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Refuse an unrelated filesystem at the MicroK8s data mount point
+  ansible.builtin.assert:
+    that:
+      - microk8s_snap_data_mountpoint.rc != 0 or microk8s_snap_data_mount_matches.rc == 0
+    fail_msg: >-
+      {{ microk8s_snap_data_path }} is already mounted from a different
+      filesystem.
+  when: not ansible_check_mode
+
+- name: Mount the MicroK8s data filesystem
+  ansible.builtin.command:
+    argv:
+      - mount
+      - "{{ microk8s_snap_data_path }}"
+  when:
+    - not ansible_check_mode
+    - microk8s_snap_data_mountpoint.rc != 0
+  changed_when: true
+
+- name: Create the MicroK8s data directory on the mounted filesystem
+  ansible.builtin.file:
+    path: "{{ microk8s_snap_data_path }}/microk8s/common"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check the MicroK8s data bind mount
+  ansible.builtin.command:
+    argv:
+      - mountpoint
+      - -q
+      - /var/snap/microk8s/common
+  register: microk8s_snap_common_mountpoint
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Inspect the existing MicroK8s bind mount source
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - -rn
+      - -T
+      - /var/snap/microk8s/common
+      - -o
+      - FSROOT
+  register: microk8s_snap_common_mount_source
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Refuse an unrelated MicroK8s bind mount
+  ansible.builtin.assert:
+    that:
+      - >-
+        microk8s_snap_common_mountpoint.rc != 0 or
+        microk8s_snap_common_mount_source.stdout | trim == '/microk8s/common'
+    fail_msg: >-
+      /var/snap/microk8s/common is already mounted from an unexpected source;
+      unmount it before running the role.
+  when: not ansible_check_mode
+
+- name: Bind mount the MicroK8s data directory
+  ansible.builtin.command:
+    argv:
+      - mount
+      - --bind
+      - "{{ microk8s_snap_data_path }}/microk8s/common"
+      - /var/snap/microk8s/common
+  when:
+    - not ansible_check_mode
+    - microk8s_snap_common_mountpoint.rc != 0
+  changed_when: true
+
+- name: Persist the MicroK8s data bind mount
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^\\S+\\s+/var/snap/microk8s/common\\s+none\\s+bind\\s'
+    line: "{{ microk8s_snap_data_path }}/microk8s/common /var/snap/microk8s/common none bind 0 0"
+    state: present
+    insertafter: EOF
+
+- name: Collect service facts
+  ansible.builtin.service_facts:
+
+- name: Start and enable snapd
+  ansible.builtin.systemd_service:
+    name: snapd.socket
+    enabled: true
+    state: started
+  when: not ansible_check_mode or 'snapd.socket' in ansible_facts.services
+
+- name: Inspect the classic snap mount path
+  ansible.builtin.stat:
+    path: /snap
+  register: microk8s_snap_mount_path
+
+- name: Create the classic snap mount path on Debian
+  ansible.builtin.file:
+    src: /var/lib/snapd/snap
+    dest: /snap
+    state: link
+    force: true
+  when: not microk8s_snap_mount_path.stat.exists
+
+- name: Wait for snapd initialization
+  ansible.builtin.command: snap wait system seed.loaded
+  register: microk8s_snapd_ready
+  retries: 30
+  delay: 10
+  until: microk8s_snapd_ready.rc == 0
+  changed_when: false
+
+- name: Check whether MicroK8s is installed
+  ansible.builtin.command: snap list microk8s
+  register: microk8s_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install MicroK8s from the pinned channel
+  ansible.builtin.command:
+    argv:
+      - snap
+      - install
+      - microk8s
+      - --classic
+      - "--channel={{ microk8s_channel }}"
+  when: microk8s_installed.rc != 0
+  changed_when: true
+
+- name: Wait for MicroK8s readiness
+  ansible.builtin.command:
+    argv:
+      - /snap/bin/microk8s
+      - status
+      - --wait-ready
+      - --timeout
+      - "{{ microk8s_ready_timeout }}"
+  changed_when: false
+  when: microk8s_installed.rc == 0 or not ansible_check_mode
+
+- name: Enable configured MicroK8s add-ons
+  ansible.builtin.command:
+    argv:
+      - /snap/bin/microk8s
+      - enable
+      - "{{ item }}"
+  loop: "{{ microk8s_addons }}"
+  register: microk8s_addon_result
+  changed_when: >-
+    microk8s_addon_result.rc == 0 and
+    'already enabled' not in microk8s_addon_result.stdout
+  failed_when: false
+  when: microk8s_installed.rc == 0 or not ansible_check_mode
+
+- name: Show unavailable MicroK8s add-ons
+  ansible.builtin.debug:
+    msg: "Could not enable {{ item.item }}: {{ item.stderr | default('unknown error') }}"
+  loop: "{{ microk8s_addon_result.results | default([]) }}"
+  when: item.rc | default(0) != 0
+
+- name: Verify configured operator accounts
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+    fail_key: true
+  loop: "{{ microk8s_users }}"
+
+- name: Add operators to the MicroK8s group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups:
+      - microk8s
+    append: true
+  loop: "{{ microk8s_users }}"
+  when: microk8s_installed.rc == 0 or not ansible_check_mode
+
+- name: Configure operator kubeconfigs
+  ansible.builtin.include_tasks: operator.yml
+  loop: "{{ microk8s_users }}"
+  loop_control:
+    loop_var: microk8s_operator
+  when: microk8s_installed.rc == 0 or not ansible_check_mode
+
+- name: Inspect MicroK8s snap aliases
+  ansible.builtin.command: snap aliases microk8s
+  register: microk8s_aliases
+  changed_when: false
+  when:
+    - microk8s_create_command_aliases
+    - microk8s_installed.rc == 0 or not ansible_check_mode
+
+- name: Create the kubectl snap alias
+  ansible.builtin.command: snap alias microk8s.kubectl kubectl
+  when:
+    - microk8s_create_command_aliases
+    - microk8s_installed.rc == 0 or not ansible_check_mode
+    - >-
+      microk8s_aliases.stdout_lines
+      | select('match', '^microk8s[.]kubectl +kubectl +')
+      | list | length == 0
+  changed_when: true
+
+- name: Create the Helm snap alias
+  ansible.builtin.command: snap alias microk8s.helm3 helm
+  when:
+    - microk8s_create_command_aliases
+    - microk8s_installed.rc == 0 or not ansible_check_mode
+    - >-
+      microk8s_aliases.stdout_lines
+      | select('match', '^microk8s[.]helm3 +helm +')
+      | list | length == 0
+  changed_when: true
+
+- name: Verify the Kubernetes node
+  ansible.builtin.command: /snap/bin/microk8s kubectl get nodes -o wide
+  register: microk8s_node_status
+  changed_when: false
+  when: microk8s_installed.rc == 0 or not ansible_check_mode
+
+- name: Show the Kubernetes node
+  ansible.builtin.debug:
+    var: microk8s_node_status.stdout_lines
+  when:
+    - microk8s_node_status is not skipped
+    - microk8s_node_status.stdout_lines is defined

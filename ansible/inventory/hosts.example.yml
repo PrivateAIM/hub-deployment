@@ -1,0 +1,17 @@
+---
+all:
+  children:
+    microk8s_hosts:
+      hosts:
+        flame-server-1:
+          # Replace this documentation-only address with the VM's reachable IP.
+          ansible_host: 192.0.2.10
+          ansible_user: debian
+      vars:
+        # Users that should receive MicroK8s group membership and a kubeconfig.
+        microk8s_users:
+          - debian
+        # Dedicated volume used for MicroK8s data. It is formatted when blank.
+        microk8s_snap_data_device: /dev/vdb
+        # Optional mount point override (default: /mnt/microk8s).
+        # microk8s_snap_data_path: /mnt/microk8s

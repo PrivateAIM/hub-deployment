@@ -1,0 +1,23 @@
+---
+- name: Upgrade Debian packages on MicroK8s hosts
+  hosts: microk8s_hosts
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Upgrade installed Debian packages
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        upgrade: dist
+
+    - name: Check whether a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: upgrade_reboot_required
+
+    - name: Report reboot requirement
+      ansible.builtin.debug:
+        msg: >-
+          Reboot {{ 'required' if upgrade_reboot_required.stat.exists else 'not required' }}
+          on {{ inventory_hostname }}. This playbook does not reboot hosts.
