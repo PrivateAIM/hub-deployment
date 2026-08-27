@@ -1,8 +1,7 @@
 
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e 
-set -u 
+set -euo pipefail
 
 MK8S="/snap/bin/microk8s"
 
@@ -21,14 +20,15 @@ echo "Starting MicroK8s Installation..."
 DEFAULT_SNAP_COMMON_PATH="/mnt/vdb1"
 SNAP_COMMON_PATH="$DEFAULT_SNAP_COMMON_PATH"
 
-if confirm_step "Step 1: Configure custom storage volume"; then
-    read -rp "Enter path for snap common (default: $DEFAULT_SNAP_COMMON_PATH): " SNAP_COMMON_PATH
+if confirm_step "Step 1: Configure a mounted data volume for MicroK8s"; then
+    read -rp "Enter the mounted data-volume path [default: $DEFAULT_SNAP_COMMON_PATH]: " SNAP_COMMON_PATH
     if [ -z "${SNAP_COMMON_PATH}" ]; then
         SNAP_COMMON_PATH="$DEFAULT_SNAP_COMMON_PATH"
     fi
 
-    if [ ! -d "$SNAP_COMMON_PATH" ]; then
-        echo "[ERROR] Mount point $SNAP_COMMON_PATH does not exist."
+    if [ ! -d "$SNAP_COMMON_PATH" ] || ! mountpoint -q "$SNAP_COMMON_PATH"; then
+        echo "[ERROR] $SNAP_COMMON_PATH is not a mounted filesystem."
+        echo "Prepare and mount one data partition first, for example with scripts/0_format_drives.sh."
         exit 1
     fi
 
@@ -48,16 +48,17 @@ if confirm_step "Step 1: Configure custom storage volume"; then
 fi
 
 if confirm_step "Step 2: Installing Snapd and MicroK8s"; then
-    sudo apt update -qq && sudo apt install -y snapd
+    sudo apt update -qq
+    sudo apt install -y snapd
 
-    DEFAULT_CHANNEL="1.32"
+    DEFAULT_CHANNEL="stable"
     read -rp "Optional: Specify MicroK8s channel [default: $DEFAULT_CHANNEL]: " MICROK8S_CHANNEL
     MICROK8S_CHANNEL="${MICROK8S_CHANNEL:-$DEFAULT_CHANNEL}"
 
     sudo snap install microk8s --classic --channel="${MICROK8S_CHANNEL}"
 
     # Explicitly update the path for this subshell session
-    export PATH=$PATH:/snap/bin
+    export PATH="${PATH}:/snap/bin"
     echo "[SUCCESS] Installation complete. Current Path: $PATH"
 fi
 
