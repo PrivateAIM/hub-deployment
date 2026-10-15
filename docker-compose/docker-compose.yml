@@ -109,7 +109,8 @@ services:
         networks:
             hub:
     authup:
-        image: authup/authup
+        # hub 0.18.0 requires authup 1.0.0-beta.69
+        image: authup/authup:${AUTHUP_IMAGE_TAG:-1.0.0-beta.69}
         pull_policy: always
         restart: always
         depends_on:
