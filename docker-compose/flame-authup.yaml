@@ -1,6 +1,14 @@
+# Authup provisioning for FLAME Hub: permission taxonomy, global roles
+# (researcher, steward) and the master-realm registry client.
+#
+# Permissions use the default createOnly strategy. Every name Hub checks must be
+# listed here, even if no role below holds it: the built-in admin role ("*") and
+# the system client only expand over permissions that exist when provisioning runs.
 permissions:
   - attributes:
       name: event_create
+  - attributes:
+      name: event_read
   - attributes:
       name: event_delete
   - attributes:
@@ -24,15 +32,23 @@ permissions:
   - attributes:
       name: project_approve
   - attributes:
+      name: registry_read
+  - attributes:
       name: registry_manage
   - attributes:
+      name: registry_project_read
+  - attributes:
       name: registry_project_manage
+  - attributes:
+      name: node_read
   - attributes:
       name: node_create
   - attributes:
       name: node_delete
   - attributes:
       name: node_update
+  - attributes:
+      name: analysis_read
   - attributes:
       name: analysis_approve
   - attributes:
@@ -52,15 +68,25 @@ permissions:
   - attributes:
       name: analysis_self_storage_use
   - attributes:
+      name: master_image_read
+  - attributes:
       name: master_image_manage
+  - attributes:
+      name: master_image_group_read
   - attributes:
       name: master_image_group_manage
   - attributes:
       name: service_manage
+# Roles use a merge strategy that touches no attributes: since authup beta.69
+# createOnly binds relations only when it creates the row, so a permission added
+# below would never reach the role on an existing install. Binding is additive.
 roles:
   - attributes:
       name: researcher
-      display_name: Researcher
+      displayName: Researcher
+    strategy:
+      type: merge
+      attributes: []
     relations:
       globalPermissionsRealmScope: own
       globalPermissions:
@@ -69,11 +95,15 @@ roles:
         - analysis_delete
         - analysis_execution_start
         - analysis_execution_stop
+        - analysis_read
         - analysis_result_read
         - analysis_self_message_broker_use
         - analysis_self_storage_use
         - analysis_update
         - bucket_update
+        - master_image_group_read
+        - master_image_read
+        - node_read
         - project_approve
         - project_create
         - project_delete
@@ -81,7 +111,10 @@ roles:
         - user_self_manage
   - attributes:
       name: steward
-      display_name: Steward
+      displayName: Steward
+    strategy:
+      type: merge
+      attributes: []
     relations:
       globalPermissionsRealmScope: own
       globalPermissions:
@@ -90,6 +123,7 @@ roles:
         - node_create
         - node_delete
         - node_update
+        - registry_read
 realms:
   - attributes:
       name: master
@@ -97,4 +131,5 @@ realms:
       clients:
         - attributes:
             name: registry
-            is_confidential: false
+            # public client (no secret at the token endpoint)
+            authMethod: none

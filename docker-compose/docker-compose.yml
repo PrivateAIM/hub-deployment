@@ -83,6 +83,10 @@ services:
         environment:
             RABBITMQ_DEFAULT_USER: root
             RABBITMQ_DEFAULT_PASS: start123
+        volumes:
+            # consumer_timeout must outlast the longest build (hub >= 0.18.0 acks a
+            # command only once its handler finishes)
+            - "./rabbitmq.conf:/etc/rabbitmq/conf.d/90-flame-hub.conf:ro"
         networks:
             hub:
     nginx:
@@ -105,7 +109,8 @@ services:
         networks:
             hub:
     authup:
-        image: authup/authup
+        # hub 0.18.0 requires authup 1.0.0-beta.69
+        image: authup/authup:${AUTHUP_IMAGE_TAG:-1.0.0-beta.69}
         pull_policy: always
         restart: always
         depends_on:
@@ -132,7 +137,7 @@ services:
         networks:
             hub:
     core:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
         restart: always
         command: core cli start
         depends_on:
@@ -167,7 +172,7 @@ services:
         networks:
             hub:
     messenger:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
         restart: always
         command: messenger cli start
         depends_on:
@@ -194,7 +199,7 @@ services:
         networks:
             hub:
     core-worker:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
         restart: always
         command: core-worker start
         depends_on:
@@ -215,7 +220,7 @@ services:
         networks:
             hub:
     storage:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
         restart: always
         command: storage cli start
         depends_on:
@@ -244,7 +249,7 @@ services:
         networks:
             hub:
     telemetry:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
         restart: always
         command: telemetry cli start
         depends_on:
@@ -271,7 +276,7 @@ services:
         networks:
             hub:
     ui:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
         restart: always
         command: ui start
         depends_on:
