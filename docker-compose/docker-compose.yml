@@ -83,6 +83,10 @@ services:
         environment:
             RABBITMQ_DEFAULT_USER: root
             RABBITMQ_DEFAULT_PASS: start123
+        volumes:
+            # consumer_timeout must outlast the longest build (hub >= 0.18.0 acks a
+            # command only once its handler finishes)
+            - "./rabbitmq.conf:/etc/rabbitmq/conf.d/90-flame-hub.conf:ro"
         networks:
             hub:
     nginx:
