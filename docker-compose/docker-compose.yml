@@ -109,8 +109,7 @@ services:
         networks:
             hub:
     authup:
-        # hub 0.18.0 requires authup 1.0.0-beta.69
-        image: authup/authup:${AUTHUP_IMAGE_TAG:-1.0.0-beta.69}
+        image: authup/authup
         pull_policy: always
         restart: always
         depends_on:
@@ -137,7 +136,7 @@ services:
         networks:
             hub:
     core:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
         command: core cli start
         depends_on:
@@ -172,7 +171,7 @@ services:
         networks:
             hub:
     messenger:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
         command: messenger cli start
         depends_on:
@@ -199,7 +198,7 @@ services:
         networks:
             hub:
     core-worker:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
         command: core-worker start
         depends_on:
@@ -220,7 +219,7 @@ services:
         networks:
             hub:
     storage:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
         command: storage cli start
         depends_on:
@@ -249,7 +248,7 @@ services:
         networks:
             hub:
     telemetry:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
         command: telemetry cli start
         depends_on:
@@ -276,7 +275,7 @@ services:
         networks:
             hub:
     ui:
-        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-0.18.0}
+        image: ${HUB_IMAGE:-ghcr.io/privateaim/hub}:${HUB_IMAGE_TAG:-latest}
         restart: always
         command: ui start
         depends_on:
