@@ -109,7 +109,7 @@ services:
         networks:
             hub:
     authup:
-        image: authup/authup
+        image: ${AUTHUP_IMAGE:-ghcr.io/authup/authup}:${AUTHUP_IMAGE_TAG:-latest}
         pull_policy: always
         restart: always
         depends_on:
