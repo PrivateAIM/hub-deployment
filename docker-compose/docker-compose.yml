@@ -132,7 +132,7 @@ services:
             CLIENT_SYSTEM_SECRET_RESET: "true"
             TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://localhost:3000}
         volumes:
-          - "./flame-authup.yaml:/var/lib/authup/provisioning/flame-authup.yaml:ro"
+          - "./flame-authup.yaml:/etc/authup/provisioning/flame-authup.yaml:ro"
         networks:
             hub:
     core:
