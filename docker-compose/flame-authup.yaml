@@ -77,6 +77,8 @@ permissions:
       name: master_image_group_manage
   - attributes:
       name: service_manage
+  - attributes:
+      name: analysis_node_log_create
 # Roles use a merge strategy that touches no attributes: since authup beta.69
 # createOnly binds relations only when it creates the row, so a permission added
 # below would never reach the role on an existing install. Binding is additive.
