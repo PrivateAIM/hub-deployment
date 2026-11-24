@@ -135,3 +135,36 @@ realms:
             name: registry
             # public client (no secret at the token endpoint)
             authMethod: none
+        # Hub >= 0.20.0: server-core (CLIENT_ID=system) mints storage capability
+        # tokens by RFC 8693 token exchange. The grant is opt-in, so it is listed
+        # next to client_credentials; the capability lets system delegate the
+        # storage domain types bucket and bucketFile (requires authup >= beta.75).
+        # Every realm that mints tokens needs an RSA or EC signing key.
+        #
+        # authup's built-in source declares this client too, and a declared
+        # strategy REPLACES its strategy: the list below is authup's own merge
+        # list (with the secret fields, as CLIENT_SYSTEM_SECRET_RESET is on) plus
+        # grantTypes, or an existing system client would never get the grant.
+        - attributes:
+            name: system
+            grantTypes: client_credentials urn:ietf:params:oauth:grant-type:token-exchange
+          strategy:
+            type: merge
+            attributes:
+              - builtIn
+              - authMethod
+              - tokenBindingMethod
+              - active
+              - secret
+              - secretHashed
+              - secretEncrypted
+              - grantTypes
+          relations:
+            tokenExchangeCapabilities:
+              - strategy:
+                  type: merge
+                attributes:
+                  audience: storage
+                  value: bucket bucketFile
+                  maxAge: 3600
+                  realmScope: any
