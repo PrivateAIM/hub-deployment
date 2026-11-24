@@ -120,6 +120,7 @@ roles:
     relations:
       globalPermissionsRealmScope: own
       globalPermissions:
+        - analysis_read
         - client_read
         - client_update
         - node_create
